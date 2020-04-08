@@ -1,4 +1,6 @@
-# Deep Learning Notes
+# Machine Learning Notes
+
+![ML Notes](images/ml-notes)
 
 ## Topics
 
