@@ -1,0 +1,213 @@
+---
+title: Logistic Regression with Gradient Descent
+author: Imran Kocabiyik
+date: '2018-05-08'
+---
+
+## 1. The Objective
+
+I am implementing the learning algorithms that I learned in <a href="https://click.linksynergy.com/fs-bin/click?id=GROwIP9ejy4&offerid=467035.248&type=3&subid=0">Andrew Ng’s famous Machine Learning course</a><img border="0" width="1" alt="" height="1" src="https://ad.linksynergy.com/fs-bin/show?id=GROwIP9ejy4&bids=467035.248&type=3&subid=0" > (Affiliate Link).
+
+I will solve a **binary classification problem** with Gradient Descent. My main objective is getting a better understanding of Gradient Descent. It will solve not only this problem, but also more complex ones like Neural Networks. I wanted to use that algorithm because it is like a Swiss Knife when solving most of the machine learning problems.  
+
+Having this objective, I need to find a problem where the output is discrete valued. $y\in\{0,1\}$. So, I found [Titanic: Machine Learning from Disaster](https://www.kaggle.com/c/titanic) competition on Kaggle would be a good practice. It is about predicting the survival chance of the passangers.  
+
+The below implementation is achieving 77% performance but I didn't spend too much effort to achieve higher score.  
+
+## 2. Logistic Regression
+Introducing some terms:  
+
+$h_\theta(x) = \theta_0x_1 +\theta_1x_2+\theta_2x_3+...  = \theta^Tx$ 
+
+Sigmoid function: $g(z) = \frac{1}{1+e^{-z}}$  
+
+The predictions: $g(\theta^Tx)$  
+
+What is sigmoid function? It maps a real number to a value between 0 and 1.  
+It is also called Logistic function. In neural networks, it is called activation function. It can be visualized as below:  
+
+```{r sigmoid-function, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+
+sigmoid <- function(x) {1/(1+exp(1)^(-x))}
+
+data_frame(x = c(-5, 5),
+           y = c(0, 1)) %>%
+  ggplot(aes(x = x, y = y))+
+  stat_function(fun = sigmoid)
+```
+
+$h_\theta(x) = 0.7$ can be interepreted as: x is *positive* with the probability of 0.7.  
+
+## 3. Logistic Regression with Gradient Descent
+
+We need a measure for divergence of the fit and we will minimize it. It is called *cost*.  
+
+The cost function in this examples is based on [Cross Entropy Loss](https://ml-cheatsheet.readthedocs.io/en/latest/loss_functions.html#cross-entropy).  
+
+### 3.1 Cost Function
+
+$$
+\begin{equation}
+  h_\theta(x)=\begin{cases}
+    -log(h_\theta(x) \text{ if } y = 1 \\
+    -log(1-h_\theta(x) \text{ if } y = 0)
+  \end{cases}
+\end{equation}
+$$
+
+In more compact way: 
+
+
+$$h_\theta(x) = -y*log(h_\theta(x))-(1-y)*log(1-h_\theta(x))$$
+
+And cost function will be:
+$$J(\theta) = -\frac{1}{m}\sum\limits_{i=1}^m[(y^{(i)})log(h_\theta(x^{(i)}))+(1-y^{(i)})log(1-h_\theta(x^{(i)}))]$$ 
+
+### 3.2 Gradient Descent
+We will minimize cost with iteration. In each iteration, we will update parameters so that cost will get lower.  This is actually _the process of learning_.  
+
+Implementation:   
+
+_Repeat_
+$\big\{$  
+$\theta_j :=\theta_j-\alpha*\frac{\partial}{\partial\theta_j}*J(\theta)$  
+$\big\}$
+
+When we do the calculus:  
+_Repeat_
+$\big\{$  
+$\theta_j :=\theta_j-\frac{\alpha}{m}\sum\limits_{i=1}^{m}(h_\theta(x^{(i)}-y^{(i)}x_j^{(i)})$  
+$\big\}$
+
+Note that this is identical to linear regression.  
+
+After stating some notations, now let's start the implementation:  
+
+## 4. Implementation
+
+### 4.1 Import Data
+```{r, message = FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+df_train <- read_csv('train.csv') %>% mutate(dataset = "train")
+df_test <- read_csv('test.csv') %>% mutate(dataset = "test")
+```
+
+### 4.2 Data Processing
+Process test and train datasets together:  
+
+Steps: 
+
+- Bind rows of train and test sets  
+- Convert categorical columns (`Sex`, `Embarked`) to intergers.  
+- Separate datasets into train and test again.
+
+```{r, message = FALSE, message=FALSE, warning=FALSE}
+# merge to datasets for data transformation
+df_all <- bind_rows(df_train, df_test)
+
+df_all <- df_all %>%  mutate(Sex = if_else(Sex =="male", true = 1L, false = 0L))
+
+df_all <- df_all %>%
+                mutate(Embarked = case_when(Embarked == "S" ~ 1L,
+                                            Embarked == "C" ~ 2L,
+                                            Embarked == "Q" ~ 3L,
+                                            is.na(Embarked) ~ 4L,
+                                            TRUE ~ 5L))
+
+# separate datasets
+df_train <- df_all %>% filter(dataset == "train")
+df_test <- df_all %>% filter(dataset == "test")
+```
+
+### 4.3 Define Functions
+
+Sigmoid Function:  
+```{r, message = FALSE, message=FALSE, warning=FALSE}
+# define sigmoid function
+sigmoid <- function(x) {1/(1 + exp(-x))}
+```
+
+Cost Function:  
+```{r, message = FALSE, message=FALSE, warning=FALSE}
+# define cost function
+cost <- function(x, y, theta){
+  m <- nrow(x)
+  hx <- sigmoid(x %*% theta)
+  (1/m)*(((-t(y)%*%log(hx))-t(1-y)%*%log(1-hx)))
+}
+```
+
+Gradient Function:  
+```{r, message = FALSE, message=FALSE, warning=FALSE}
+# gradient
+grad <- function(x, y, theta){
+  m <- nrow(x)
+  hx <- sigmoid(x %*% theta)
+  (1/m)*(t(x)%*%(hx - y))
+}
+```
+
+Once we find the parameters, we will make predictions with test data.  
+So, prediction Function will be defined as:  
+```{r, message = FALSE, message=FALSE, warning=FALSE}
+# prediction
+logit_predict <- function(df, theta, features) {
+  x <- as.matrix(df[,features])
+  x <- cbind(1, x)
+  sigmoid(x %*% theta) %>%
+    as_data_frame()
+}
+```
+
+
+### 4.4 Runing Gradient Descent
+This will return the parameters which minimizes the cost.  
+```{r, message = FALSE, message=FALSE, warning=FALSE}
+logit_gradient_descent <- function(df, iter = 10000, learning_rate, features, response){
+  
+  # initial theta values: set all of them to 1
+  n_independent = length(features)
+  theta = matrix(rep(1, n_independent+1), nrow = n_independent+1)
+  m = nrow(df)
+  
+  # dependent and independent variables 
+  y = as.matrix(df[response])
+  x <- as.matrix(df[,features])
+  x <- cbind(1, x)
+  
+  cost_values = NA
+  # run gradient descent
+  for (i in 1:iter){
+    theta <- theta-learning_rate*grad(x, y, theta)
+    
+    cost_values[i] <- cost(x, y, theta)[1,1]
+    if(i > 1){
+      if(cost_values[i] > cost_values[i-1]) {
+        warning("Cost is not decreasing in each iteration. Lower the learning_rate")
+        break
+      } 
+    }
+  }
+  theta
+}
+```
+
+### 4.5 Make Predictions
+```{r, message = FALSE, message=FALSE, warning=FALSE}
+theta <- logit_gradient_descent(df = df_train, iter = 100000, learning_rate = 0.001,
+                                features = c("Sex", "Pclass", "SibSp", "Embarked"), response = 'Survived')
+
+predictions_train <- logit_predict(df_train, theta, features = c("Sex", "Pclass", "SibSp", "Embarked"))
+df_train$predicted <- predictions_train$Survived
+df_train %>% mutate(predicted = as.integer(round(predicted))) %>% 
+  mutate(is_prediction_true = Survived == predicted) %>% 
+  group_by(is_prediction_true) %>% 
+  count()
+
+predictions <- logit_predict(df_test, theta, features = c("Sex", "Pclass", "SibSp", "Embarked"))
+```
+
+## References
+- [Coursera Machine Learning Course](https://www.coursera.org/learn/machine-learning) by Andrew Ng  

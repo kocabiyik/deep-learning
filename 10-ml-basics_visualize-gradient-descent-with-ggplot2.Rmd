@@ -1,0 +1,186 @@
+---
+title: Visualize Gradient Descent with ggplot2
+author: Imran Kocabiyik
+date: '2018-05-09'
+slug: visualize-gradient-descent-with-ggplot2
+categories:
+  - Data Visualization
+tags:
+  - ggplot2
+  - Gradient descent
+---
+
+# Gradient Descent Visualization with ggplot2
+
+Gradient Descent is a useful method for solving optimization problems.
+In this post, I would like to visualize how it works.  
+The problem I would like to focus is linear regression and I will use mtcars dataset.  
+
+## 1. Outline
+The hypothesis: $h_\theta(x) = \theta_0+\theta_1 x$. This is a linear model.  
+To fit the model, we need to define a cost function:  $J(\theta_0, \theta_1) = \frac{1}{2m}\sum\limits_1^m(h_\theta(x^i)-y^i)^2$  
+For the minimum value of J, we can find the best fit.  
+To find the minimum, we will use gradient descent algorithm which is defined as:  
+$$\theta_j := \theta_j-\alpha\frac{\partial}{\partial_j}J(\theta_0,\theta_1)$$
+This will be **iterative**.  We will start with some random parameters and we will update until we find a minimum.  
+
+## 2. Data
+In this example, `wt` will be the input, and `mpg` will be the output.
+```{r, message=FALSE}
+library(dplyr)
+mtcars %>% select(wt, mpg) %>% tbl_df()
+```
+
+A quick look:
+```{r scatter-plot-quick-look, message=FALSE}
+library(ggplot2)
+mtcars %>% ggplot(aes(wt, mpg))+
+  geom_point()
+```
+
+## 3. Gradient Descent
+In below code chunk, I will define some initial values like learning rate, then I will run gradient descent. For every iteration, I will keep the value of `theta1` and `theta2` and `cost` in a dataframe named **records**.
+```{r gradient-descent}
+m <- nrow(mtcars)
+
+# variables
+x1 <- rep(1, m)
+x2 <- mtcars$wt
+y <- mtcars$mpg
+
+# learning rate
+alpha <- 0.01
+
+# a blank dataframe to record simultaneous updates
+records <- data_frame(
+  iter = as.integer(),
+  theta0 = as.numeric(),
+  theta1 = as.numeric(),
+  cost = as.numeric())
+
+# initial theta
+theta <- c(-5, 0)
+
+# gradient descent
+for (i in 1:10000){
+  # predictions
+  yhat <- theta[1]*x1+theta[2]*x2
+  
+  # cost
+  cost <- sum((y-yhat)^2)/(2*m)
+  
+  # update theta
+  theta[1] <- theta[1]-alpha*(1/m)*sum((yhat-y)*x1)
+  theta[2] <- theta[2]-alpha*(1/m)*sum((yhat-y)*x2)
+  
+  # record updates
+  records[i, ] <- c(i, theta[1], theta[2], cost)
+}
+```
+
+### 3.1 Parameters
+
+After 10000 iteration, here are the parameters:
+
+```{r}
+theta
+```
+
+
+Add the regression line:
+```{r}
+# visualize regression line
+mtcars %>% ggplot(aes(wt, mpg))+
+  geom_point()+
+  geom_abline(intercept = theta[1],
+              slope = theta[2])
+```
+
+Visualize cost:
+```{r cost-function}
+# visualize cost
+records %>% ggplot(aes(iter, cost))+
+  geom_point(size = 0.4)
+
+```
+
+
+Visualize updates in parameters:
+```{r gradient-descent-parameter-updates}
+# visualize updates in parameters
+grid <- data_frame(theta0 = seq(-10, 50, length.out = 100),
+                   theta1 = list(seq(-10, 10, length.out = 100)),
+                   cost = NA) %>% 
+  tidyr::unnest()
+
+for (i in 1:nrow(grid)){
+  theta0 <- grid$theta0[i]
+  theta1 <- grid$theta1[i]
+  yhat <- theta0*x1+theta1*x2
+  grid$cost[i] <- sum((y-yhat)^2)/(2*m)
+}
+
+grid %>% ggplot(aes(x = theta0, y = theta1, z = cost))+
+  geom_raster(aes(fill = cost)) +
+  geom_point(data = records, aes(x = theta0, y = theta1), color = "white", alpha = 0.1)+
+  scale_fill_gradient(low = "#56B1F7", high = "#132B43", guide = "colourbar")
+```
+
+Starting from some other parameters:  
+Set $(\theta_0, \theta_1) = (20, 8)$ and run the gradient descent again:  
+```{r gradient-descent-parameter-updates2, echo=FALSE, message=FALSE}
+m <- nrow(mtcars)
+
+# variables
+x1 <- rep(1, m)
+x2 <- mtcars$wt
+y <- mtcars$mpg
+
+# learning rate
+alpha <- 0.01
+
+# a blank dataframe to record simultaneous updates
+records <- data_frame(
+  iter = as.integer(),
+  theta0 = as.numeric(),
+  theta1 = as.numeric(),
+  cost = as.numeric())
+
+# initial theta
+theta <- c(20, 8)
+
+# gradient descent
+for (i in 1:10000){
+  # predictions
+  yhat <- theta[1]*x1+theta[2]*x2
+  
+  # cost
+  cost <- sum((y-yhat)^2)/(2*m)
+  
+  # update theta
+  theta[1] <- theta[1]-alpha*(1/m)*sum((yhat-y)*x1)
+  theta[2] <- theta[2]-alpha*(1/m)*sum((yhat-y)*x2)
+  
+  # record updates
+  records[i, ] <- c(i, theta[1], theta[2], cost)
+}
+
+# visualize updates in parameters
+grid <- data_frame(theta0 = seq(-10, 50, length.out = 100),
+                   theta1 = list(seq(-10, 10, length.out = 100)),
+                   cost = NA) %>% 
+  tidyr::unnest()
+
+for (i in 1:nrow(grid)){
+  theta0 <- grid$theta0[i]
+  theta1 <- grid$theta1[i]
+  yhat <- theta0*x1+theta1*x2
+  grid$cost[i] <- sum((y-yhat)^2)/(2*m)
+}
+
+grid %>% ggplot(aes(x = theta0, y = theta1, z = cost)) +
+  geom_raster(aes(fill = cost)) +
+  scale_fill_gradient(low = "#56B1F7", high = "#132B43", guide = "colourbar") +
+  geom_point(data = records, aes(x = theta0, y = theta1), color = "white", alpha = 0.1)
+```
+

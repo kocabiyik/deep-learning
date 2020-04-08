@@ -1,0 +1,253 @@
+---
+title: Linear Regression with Gradient Descent
+author: Imran Kocabiyik
+date: '2018-05-08'
+---
+
+# Linear Regression with Gradient Descent
+
+Solving a linear regression problem with *Gradient Descent* optimization algorithm to better understand _learning_...  
+
+## 1. Notations and Definitions
+
+Assume the training set below: (a tibble in R)
+
+```{r cars, message=FALSE, warning = FALSE}
+library(dplyr)
+as_tibble(cars)
+```
+
+**m** : Number of training examples (or data points). In this example it is `r nrow(cars)`.  
+**x** : Input variable `speed`    
+**y** : Output variable `dist`     
+$(x,y)$ denotes one sample from our training set.  
+$(x^i, y^i)$ is the $i^{th}$ training example. In our example, $x^1$ = `r cars$speed[2]`, $y^1$ = `r cars$dist[1]`  
+
+**The hypothesis** $h$ maps $x$'s to $y's$.  
+$y$ will be the estimated value of `dist`.  
+
+### 1.1 How to represent $h$?
+
+$$h_\theta(x) = \theta_0+\theta_1 x$$
+
+Because there is one variable, it is also called as **univariate linear regression** or **linear regression with one variable**.  
+
+## 2. Cost Function
+
+How to choose $\theta_0$ and $\theta_1$ for the best fit?  
+
+### 2.1 Idea
+
+Chose $\theta_0$ and $\theta_1$ so that $h_\theta(x)$ is **close to** our training examples $y$.  
+
+Mathematically speaking, find $\theta_0$ and $\theta_1$ that **minimizes**:
+$$J(\theta_0, \theta_1) = \frac{1}{2m}\sum\limits_1^m(h_\theta(x^i)-y^i)^2$$  
+
+$J(\theta_0, \theta_1)$ is the cost function. It is also called **Squared Error Function**.  
+
+### 2.2 Application
+
+An illustration with `cars` datasets in R:  
+Plot `speed` on x axis and `dist` (distance to stop) on y axis.
+
+```{r cars-scatterplot}
+library(ggplot2)
+ggplot(cars, aes(x = speed, y = dist))+
+  geom_point()
+```
+
+
+Add some models to represent the relationship between `speed` and `dist`.  
+For simplicity, set $\theta_0 = 0$.
+
+```{r linear-models, fig.height=2, fig.width=9}
+library(ggplot2)
+
+# simulate data
+set.seed(1010)
+sim1 <- data_frame(
+  x = rep(cars$speed, 9),
+  y = rep(cars$dist, 9),
+  model_no = paste("Model", sort(rep(1:9, 50))),
+  theta1 = sort(rep(seq(from = 1, to = 4.5, length.out = 9), 50)),
+  theta0 = 0)
+
+# add predictions
+sim1 <- sim1 %>% mutate(prediction = theta0 + x*theta1)
+
+# visualize
+sim1 %>% ggplot(aes(x = x, y = y))+
+  geom_point(size = 0.5)+
+  geom_abline(aes(slope = theta1, intercept = theta0), color = "red") +
+  geom_segment(aes(x = x, xend = x,
+                   y = prediction, yend = y), alpha = 0.3) +
+  facet_grid(.~model_no)
+```
+
+Now visualize cost function:
+
+```{r lienar-regression-cost-function}
+# sum of squared errors
+sse <- sim1 %>% 
+  mutate(squared_error = (prediction-y)^2) %>% 
+  group_by(model_no, theta1) %>% 
+  summarize(m = n(),
+            cost = (1/(2*m))*sum(squared_error))
+
+sse %>% ggplot(aes(x = theta1, y = cost)) +
+  geom_point(color = "blue") +
+  geom_text(aes(label = model_no), angle = 0, nudge_y = 20, size = 3)
+```
+
+It looks like a parabola. The model 5 is looks better comparing to other alternatives.  
+
+How to find the best one? There might be other solutions but the objective of this example is understanding _learning_. So let's go with **Gradient Descent**.  
+
+## 3. Gradient Descent
+
+Outline:  
+1. Start with some $\theta_0, \theta_1$  
+2. Keep changing $\theta_0, \theta_1$ to reduce $J(\theta_0, \theta_1)$ until we hopefully find a minimum.  
+
+### 3.1 Gradient Descent Algorithm
+It is an itterative optimization algorithm. It is not only useful for linear regression but many machine learning problems.  
+
+repeat until convergence:
+$$\theta_j := \theta_j-\alpha\frac{\partial}{\partial_j}J(\theta_0,\theta_1)$$ for i = 0 and i = 1
+
+- $:=$ is the assigment operator  
+- $\alpha$ is the learning rate.  
+- $\theta_0$ and $\theta_1$ should **simultaneously** be updated.  
+
+### 3.2. Gradient Descent Visualization
+
+Visualization with `ggplot2`:
+
+```{r gradient-descent-small-learning-rate, message=FALSE}
+# cost function
+cost_function <- function(x) (x-2)^2
+
+# derivative function
+library(Deriv)
+derivative <- Deriv(cost_function)
+
+df <- data_frame(x = 0,
+                 y = cost_function(x),
+                 new_x = x,
+                 new_y = y)
+
+# learning rate
+learning_rate = 0.2
+
+# create dataframe
+for (i in 1:20) {
+  x = df$new_x[i]
+  y = df$new_y[i]
+  step = derivative(x)*learning_rate
+  new_x = x-step
+  new_y = cost_function(new_x)
+  new_df = data_frame(x = x, y = y, new_x = new_x, new_y = new_y)
+  df <- bind_rows(df, new_df)
+  rm(x, y, new_x, step, new_y, new_df)
+}
+
+# plot
+ggplot(df, aes(x, y)) +
+  geom_point() +
+  geom_segment(aes(x = x, xend = new_x,
+                   y =y, yend = new_y), color = "blue", linetype = "dotted") +
+  stat_function(fun = cost_function, alpha = 0.5) +
+  xlim(c(-1, 5)) +
+  ggtitle(label = "Gradient Descent Visualization", subtitle = "Learning rate : 0.2")
+```
+
+In this example the learning rate was 0.2.  
+
+Another example with a higher learning rate: 0.9 :
+
+```{r gradient-descent-high-learning-rate, message=FALSE, echo = FALSE}
+# cost function
+cost_function <- function(x) (x-2)^2
+
+# derivative function
+library(Deriv)
+derivative <- Deriv(cost_function)
+
+df <- data_frame(x = 0,
+                 y = cost_function(x),
+                 new_x = x,
+                 new_y = y)
+
+# learning rate
+learning_rate = 0.9
+
+# create dataframe
+for (i in 1:20) {
+  x = df$new_x[i]
+  y = df$new_y[i]
+  step = derivative(x)*learning_rate
+  new_x = x-step
+  new_y = cost_function(new_x)
+  new_df = data_frame(x = x, y = y, new_x = new_x, new_y = new_y)
+  df <- bind_rows(df, new_df)
+  rm(x, y, new_x, step, new_y, new_df)
+}
+
+# plot
+ggplot(df, aes(x, y)) +
+  geom_point() +
+  geom_segment(aes(x = x, xend = new_x,
+                   y =y, yend = new_y), color = "blue", linetype = "dotted") +
+  stat_function(fun = cost_function, alpha = 0.5) +
+  xlim(c(-1, 5)) +
+  ggtitle(label = "Gradient Descent Visualization", subtitle = "Learning rate : 0.9")
+```
+
+
+## 3.3 Finding Parameters with Gradient Descent
+Note that the derivative of the cost function:  
+$$\frac{1}{m}\sum_{i}^{m}(h_\theta(x^{(i)}-y^{(i)})x^{(i)}$$
+
+
+Find the parameters:
+
+```{r}
+x <- cars$speed
+y <- cars$dist
+theta1 <- 6
+alpha <- 0.001
+m <- nrow(cars)
+yhat <- theta1*x
+df <- data_frame(theta1 = as.double(),
+                 cost = NA,
+                 iteration = 1)
+for (i in 1:20){
+  theta1 <- theta1 - alpha * ((1 / m) * (sum((yhat - y) * x)))
+  yhat <- theta1*x
+  cost <- (1/m)*sum((yhat-y)^2)
+  df[i, 1] = theta1
+  df[i, 2] <- cost
+  df[i, 3] <- i
+}
+theta1
+```
+
+Visualize the linear regression line:
+
+```{r linear-line}
+cars %>% ggplot(aes(speed, dist))+
+                geom_point()+
+                geom_abline(slope = theta1, intercept = 0)
+```
+
+
+Check the cost function:
+
+```{r cost-function-iteration}
+df %>% ggplot(aes(x = iteration, y = cost))+
+  geom_line()+
+  geom_point()
+```
+
+## References
+- [Coursera Machine Learning Course](https://www.coursera.org/learn/machine-learning) by Andrew Ng  
