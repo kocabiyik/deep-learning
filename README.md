@@ -1,6 +1,6 @@
 # Machine Learning Notes
 
-![ML Notes](images/ml-notes)
+![ML Notes](images/ml-notes.jpg)
 
 ## Topics
 
