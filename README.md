@@ -4,7 +4,7 @@
 
 ## Topics
 
-The notebooks are ordered with topics. First digit represents the topic, second digit represent the subtopic.  
+First digit represents the topic, second digit represent the subtopic.  
 
 - `0` Math, Statistics and Calculus Review
 - `1` ML Basics
